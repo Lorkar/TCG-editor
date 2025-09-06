@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Millenium TCG – Editor karet</title>
+  <style>
+    :root{
+      --card-w: 750;
+      --card-h: 1050;
+      --radius: 42;
+      --accent: #9bdcff;
+      --ink: #eef6fb;
+      --muted: #9aa8b6;
+      --chrome1: linear-gradient(180deg,#dfe9f6 0%,#9fbcd8 35%,#dfe9f6 100%);
+      --pad: 24px;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif;
+      --font-futuristic: "Orbitron", "Michroma", "Exo", "Rajdhani", "Russo One", "Share Tech", sans-serif;
+    }
+
+    html,body{height:100%;margin:0;background:#071018;color:var(--ink);font-family:var(--font-sans);}
+    .app{display:grid;grid-template-columns:360px 1fr;min-height:100vh}
+    .panel{padding:18px;border-right:1px solid #0f1720;background:linear-gradient(180deg,#071018,#051018);}
+    h1{margin:0 0 12px 0;color:#cfe8fb;font-size:16px}
+    .group{background:#07161f;border:1px solid #123; padding:12px;border-radius:10px;margin-bottom:12px}
+    label{display:block;font-size:12px;color:#89a7bd;margin-bottom:6px}
+    input,select,textarea,button{width:100%;box-sizing:border-box;border-radius:8px;padding:8px 10px;background:#071a23;border:1px solid #16323f;color:var(--ink)}
+    textarea{min-height:80px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn{background:#08232f;border:1px solid #1b3b4b;padding:10px;border-radius:10px;color:var(--ink);cursor:pointer}
+    .work{display:flex;align-items:center;justify-content:center;padding:24px}
+    .stage{position:relative}
+    .hint{position:absolute;right:10px;bottom:10px;color:#6e8ba0;font-size:12px}
+
+    /* responsive svg scaling */
+    svg{height:min(88vh,95%);width:auto;display:block}
+
+    /* small helpers */
+    .inline{display:inline-block}
+    .muted{color:var(--muted)}
+    
+    /* Drag and drop styles */
+    .draggable { cursor: move; }
+    
+    /* Hidden elements for specific card types */
+    .skill-hidden { display: none !important; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>Millenium TCG</h1>
+
+      <div class="group">
+        <label>Typ karty</label>
+        <select id="inCardType">
+          <option value="CREW">CREW</option>
+          <option value="SKILL">SKILL</option>
+          <option value="TECH">TECH</option>
+          <option value="KEY">KEY</option>
+          <option value="EVENT">EVENT</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label>Název</label>
+        <input id="inTitle" value="Jméno Karty" />
+        <div style="height:8px"></div>
+        <div class="row" id="costDisassembleContainer">
+          <div>
+            <label>Cena</label>
+            <input id="inCost" value="3" />
+          </div>
+          <div id="disassembleContainer">
+            <label>Rozebrání</label>
+            <input id="inDisassemble" value="2" />
+          </div>
+        </div>
+        <div style="height:8px"></div>
+        <div class="row" id="energyBagContainer">
+          <div>
+            <label>Energie</label>
+            <input id="inEnergy" type="number" min="0" value="3" />
+          </div>
+          <div>
+            <label>Brašna</label>
+            <input id="inBag" type="number" min="0" value="2" />
+          </div>
+        </div>
+        <div style="height:8px"></div>
+        <div>
+          <label>URL obrázku</label>
+          <input id="inImageUrl" placeholder="URL obrázku (volitelné)" />
+        </div>
+        <div style="height:8px"></div>
+        <label>Nahrát obrázek (PNG/JPG)</label>
+        <input id="inImageFile" type="file" accept="image/*" />
+      </div>
+
+      <div class="group" id="boltsContainer">
+        <label>Cena aktivního použití</label>
+        <input id="inTopBolts" type="number" min="0" value="2" />
+        <div style="height:8px"></div>
+        <label>Cena reaktivního použití</label>
+        <input id="inBottomBolts" type="number" min="0" value="1" />
+      </div>
+
+      <div class="group" id="rulesContainer">
+        <label>Aktivní použití</label>
+        <textarea id="inRuleTop">Active skill effect.</textarea>
+        <div style="height:8px"></div>
+        <label>Reaktivní použití</label>
+        <textarea id="inRuleBottom">Reactive skill effect</textarea>
+      </div>
+
+      <div class="group" id="singleRuleContainer" style="display:none">
+        <label>Pravidlový text</label>
+        <textarea id="inSingleRule">Card inherent text</textarea>
+      </div>
+
+      <div class="group">
+        <label>Flavor</label>
+        <textarea id="inFlavor">„Chleba s máslem se salámem.“</textarea>
+      </div>
+
+      <div class="group">
+        <button class="btn" id="btnExportJSON">⬇ Exportuj JSON</button>
+        <div style="height:8px"></div>
+        <label class="btn" for="inImportJSON" style="display:block; text-align:center; cursor:pointer;">
+          ⬆ Načti JSON
+        </label>
+        <input id="inImportJSON" type="file" accept="application/json" style="display:none;" />
+        <div style="height:8px"></div>
+        <button class="btn" id="btnExportPNG">⬇ Exportuj PNG</button>
+        <div style="height:8px"></div>
+
+        <button class="btn" id="btnReset">Reset</button>
+      </div>
+    </aside>
+
+    <main class="work">
+      <div class="stage" id="stage">
+        <!-- komplexní SVG karty -->
+        <svg id="card" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 1050" width="750" height="1050">
+          <defs>
+            <!-- chrome gradients and bevels -->
+            <linearGradient id="chromeMain" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#f7fbff" stop-opacity="1"/>
+              <stop offset="25%" stop-color="#d9eefb" stop-opacity="1"/>
+              <stop offset="50%" stop-color="#b6d7ea" stop-opacity="1"/>
+              <stop offset="75%" stop-color="#d9eefb" stop-opacity="1"/>
+              <stop offset="100%" stop-color="#f7fbff" stop-opacity="1"/>
+            </linearGradient>
+            <linearGradient id="chromeEdge" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#e6f4fb"/>
+              <stop offset="100%" stop-color="#b7cfe2"/>
+            </linearGradient>
+            <radialGradient id="vignette" cx="50%" cy="30%" r="60%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
+              <stop offset="100%" stop-color="#000000" stop-opacity="0.35"/>
+            </radialGradient>
+
+            <!-- icons -->
+            <!-- Battery icon -->
+            <symbol id="iconBattery" viewBox="0 0 24 24">
+              <rect x="7" y="2" width="10" height="18" rx="2" ry="2" fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="0.75"/>
+              <rect x="10" y="0" width="4" height="2" fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="0.75"/>
+              <!-- Lightning inside of the battery -->
+              <path d="M13 4 L9 13 H12 L11 17 L15 11 H12 L13 5 Z" fill="#dceffc" />
+            </symbol>
+            
+            <!-- Folder (bag) icon -->
+            <symbol id="iconFolder" viewBox="0 0 24 24">
+              <!-- Folder stroke -->
+              <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12
+                       c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8
+                       c0-1.1-.9-2-2-2z"
+                    fill="url(#chromeEdge)" 
+                    stroke="#cfe9fb" stroke-width="0.75"/>
+            </symbol>
+            
+            <symbol id="iconHexagon" viewBox="0 0 24 24">
+              <path d="M12 1 L22 6.5 L22 17.5 L12 23 L2 17.5 L2 6.5 Z" fill="currentColor" />
+            </symbol>
+            
+            <!-- Cog (disassemble) icon -->
+            <symbol id="iconCog" viewBox="0 0 24 24">
+              <!-- hole, unused -->
+              <circle cx="12" cy="12" r="3.5" fill="#1a3b5a"/>
+              <!-- the cog -->
+              <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.65l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.03 7.03 0 0 0-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.63.24-1.21.56-1.75.95l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.14.23-.09.53.12.65l2.11 1.65c-.04.32-.07.66-.07.98s.03.66.07.98L2.4 14.63a.5.5 0 0 0-.12.65l2 3.46c.14.23.42.32.61.22l2.49-1c.54.39 1.12.71 1.75.95l.38 2.65c.04.27.25.42.49.42h4c.24 0 .45-.15.49-.42l.38-2.65c.63-.24 1.21-.56 1.75-.95l2.49 1c.19.1.47.01.61-.22l2-3.46a.5.5 0 0 0-.12-.65l-2.11-1.65z" fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="0.75"/>
+            </symbol>
+
+            <!-- White battery for SKILL cards -->
+            <symbol id="iconBatteryOutline" viewBox="0 0 24 24">
+              <rect x="7" y="2" width="10" height="18" rx="2" ry="2" fill="none" stroke="#fff" stroke-width="0.75"/>
+              <rect x="10" y="0" width="4" height="2" fill="none" stroke="#fff" stroke-width="0.75"/>
+              <!-- Lightning inside -->
+              <path d="M13 4 L9 13 H12 L11 17 L15 11 H12 L13 5 Z" fill="#fff" />
+            </symbol>
+
+
+
+
+            <!-- Tag icon -->
+            <symbol id="iconTag" viewBox="0 0 70 140">
+              <!-- the hole in the tag -->
+              <circle cx="35" cy="18" r="8" fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="1.5"/>
+              <!-- the shape of the tag -->
+              <path d="
+                M10,18
+                H60
+                A10,10 0 0 1 70,28
+                V100
+                L35,140 0,100
+                V28
+                A10,10 0 0 1 10,18
+                Z"
+                fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="4"/>
+            </symbol>
+
+            <!-- mask for disassemble number -->
+            <mask id="cutDisassembleMask">
+              <rect x="0" y="0" width="750" height="1050" fill="white" />
+              <text id="maskDisassembleText" x="35" y="75" font-size="42" font-weight="700" font-family="var(--font-futuristic)" fill="black" text-anchor="middle">2</text>
+            </mask>
+
+            <!-- rounded clip for card shape -->
+            <clipPath id="cardClip">
+              <rect x="0" y="0" width="750" height="1050" rx="42" ry="42" />
+            </clipPath>
+
+            <!-- subtle inner shadow filter to give convex feel -->
+            <filter id="innerShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feOffset dx="0" dy="6" result="off" />
+              <feGaussianBlur in="off" stdDeviation="8" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="arithmetic" k2="-1" k3="1" result="inner" />
+            </filter>
+
+            <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.45"/>
+            </filter>
+
+            <!-- Chrome text effect -->
+            <filter id="chromeText" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+              <feSpecularLighting in="blur" surfaceScale="5" specularConstant="0.75" specularExponent="20" lighting-color="#fff" result="specOut">
+                <fePointLight x="-5000" y="-10000" z="20000"/>
+              </feSpecularLighting>
+              <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut2"/>
+              <feComposite in="SourceGraphic" in2="specOut2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint"/>
+            </filter>
+
+            <!-- Chrome gradient for text -->
+            <linearGradient id="chromeTextGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f7fbff" />
+              <stop offset="40%" stop-color="#cfe4f3" />
+              <stop offset="60%" stop-color="#a8cce6" />
+              <stop offset="100%" stop-color="#d9eefb" />
+            </linearGradient>
+
+          </defs>
+
+          <!-- card base (chrome framed) -->
+          <g clip-path="url(#cardClip)">
+            <!-- base background (subtle metal) -->
+            <rect x="0" y="0" width="750" height="1050" fill="url(#chromeMain)" />
+            <!-- outer beveled rim -->
+            <rect x="10" y="10" width="730" height="1030" rx="36" ry="36" fill="none" stroke="url(#chromeEdge)" stroke-width="6"/>
+
+            <!-- art area, more margin from card edges with plastic border -->
+            <g id="artGroup" transform="translate(70,120)">
+              <rect x="0" y="0" width="610" height="400" rx="18" ry="18" fill="#08131a" stroke="url(#chromeEdge)" stroke-width="3" filter="url(#dropShadow)" />
+              <!-- image placeholder (image will be placed here) -->
+              <g id="imageClip">
+                <clipPath id="artClip">
+                  <rect x="0" y="0" width="610" height="400" rx="18" ry="18" />
+                </clipPath>
+                <image id="artImage" x="0" y="0" width="610" height="400" preserveAspectRatio="xMidYMid slice" href="" class="draggable" clip-path="url(#artClip)" />
+              </g>
+              <!-- overlay gloss to make it convex -->
+              <rect x="0" y="0" width="610" height="400" rx="18" ry="18" fill="url(#vignette)" opacity="0.25" />
+            </g>
+
+            <!-- top frame with embossed title -->
+            <g id="titleGroup">
+              <rect x="70" y="40" width="610" height="52" rx="14" ry="14" fill="#eaf6fc" opacity="0.06" />
+              <text id="title" x="375" y="78" text-anchor="middle" font-family="var(--font-futuristic)" font-size="36" font-weight="700" fill="url(#chromeTextGradient)" style="letter-spacing:0.06em; text-transform:uppercase; filter: url(#chromeText);">
+                Jméno Karty
+              </text>
+            </g>
+
+            <!-- vertical punched-out tag -->
+            <g id="tagGroup" transform="translate(40,40) rotate(25,35,90)">
+              <!-- samotná visačka -->
+              <use href="#iconTag" x="10" y="15" width="70" height="140"/>
+              <!-- číslo uvnitř -->
+              <g transform="rotate(0,35,90)">
+                <text id="tagCostVisible" x="45" y="100" text-anchor="middle"
+                      font-size="55" font-weight="500" font-family="var(--font-futuristic)"
+                      fill="#ffffff" stroke="#cfe9fb" stroke-width="3" paint-order="stroke fill">3</text>
+              </g>
+            </g>
+            <!-- middle area -->
+            <g id="midArea" transform="translate(70,550)">
+              <!-- top (turquoise muted) -->
+              <rect id="topRuleBox" x="0" y="0" width="610" height="190" rx="16" ry="16" fill="#123a3a" opacity="0.14" stroke="#327a7a" />
+              <g id="topBox" transform="translate(30,20)">
+                <g id="topBolts" transform="translate(0,120)"></g>
+                <text id="topRule" x="40" y="50" font-size="20" fill="#fff" text-anchor="start" dominant-baseline="middle" width="530" font-family="var(--font-futuristic)" font-weight="400">Zaplať 1 → Proveď akci.</text>
+              </g>
+
+              <!-- spacer -->
+              <g transform="translate(0,210)">
+                <!-- bottom (blue muted) - taller -->
+                <rect id="bottomRuleBox" x="0" y="0" width="610" height="190" rx="16" ry="16" fill="#07324a" opacity="0.12" stroke="#1e4a6b" />
+                <g id="bottomBox" transform="translate(30,20)">
+                  <g id="bottomBolts" transform="translate(0,120)"></g>
+                  <text id="bottomRule" x="40" y="50" font-size="20" fill="#fff" text-anchor="start" dominant-baseline="middle" width="530" font-family="var(--font-futuristic)" font-weight="400">Cíl získá +1 energie do konce kola.</text>
+                </g>
+              </g>
+            </g>
+
+            <!-- single rule box (CREW and TECH) -->
+            <g id="singleRuleGroup" transform="translate(70,550)" style="display:none">
+              <rect x="0" y="0" width="610" height="310" rx="16" ry="16" fill="#07324a" opacity="0.12" stroke="#1e4a6b" />
+              <foreignObject x="30" y="20" width="550" height="285">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="color: #fff; font-family: var(--font-futuristic); font-size: 20px; line-height: 1.4; text-align: center; display: flex; align-items: center; justify-content: center; height: 100%; font-weight: 400;">
+                  Zaplať 1 → Proveď akci. Cíl získá +1 energie do konce kola.
+                </div>
+              </foreignObject>
+            </g>
+
+            <!-- single rule box for TECH -->
+            <g id="techRuleGroup" transform="translate(70,550)" style="display:none">
+              <rect x="0" y="0" width="610" height="325" rx="16" ry="16" fill="#07324a" opacity="0.12" stroke="#1e4a6b" />
+              <foreignObject x="30" y="20" width="550" height="298">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="color: #fff; font-family: var(--font-futuristic); font-size: 20px; line-height: 1.4; text-align: center; display: flex; align-items: center; justify-content: center; height: 100%; font-weight: 400;">
+                  Zaplať 1 → Proveď akci. Cíl získá +1 energie do konce kola.
+                </div>
+              </foreignObject>
+            </g>
+
+            <!-- flavor text centered at the very bottom -->
+            <text id="flavorText" x="375" y="1020" text-anchor="middle" font-size="16" fill="#bcd8eb" font-style="italic" font-family="var(--font-futuristic)" font-weight="400">„Ticho před bouří — stiskni ten spínač.“</text>
+
+            <!-- bottom stats -->
+            <g id="statsGroup" transform="translate(70,905)" style="display:none">
+              <!-- energy stat -->
+              <g id="energyStat" transform="translate(-58,-97)">
+                <use href="#iconBattery" x="0" y="0" width="150" height="150" />
+                <text id="energyValue" x="74" y="90" text-anchor="middle" font-size="62" stroke="#cfe9fb" stroke-width="3" paint-order="stroke fill" font-weight="500" fill="#ffffff" font-family="var(--font-futuristic)">3</text>
+              </g>
+
+              <!-- folder (bag) stat -->
+              <g id="bagStat" transform="translate(510,-80)">
+                <use href="#iconFolder" x="0" y="0" width="130" height="130" />
+                <text id="bagValue" x="65" y="90" text-anchor="middle" font-size="62" stroke="#cfe9fb" stroke-width="3" paint-order="stroke fill" font-weight="500" fill="#ffffff" font-family="var(--font-futuristic)">2</text>
+              </g>
+            </g>
+
+            <!-- disassemble icon for TECH cards -->
+            <g id="disassembleGroup" transform="translate(610,40)" style="display:none">
+              <!-- cog background -->
+              <use href="#iconCog" x="-25" y="-10" width="135" height="135" />
+              <!-- disassemble text -->
+              <text id="disassembleVisible" x="42" y="78" text-anchor="middle"
+                    font-size="62" font-weight="500" font-family="var(--font-futuristic)"
+                    fill="#ffffff" stroke="#cfe9fb" stroke-width="3"
+                    paint-order="stroke fill">2</text>
+            </g>
+
+            <!-- subtle overall gloss -->
+            <rect x="0" y="0" width="750" height="1050" rx="42" ry="42" fill="url(#vignette)" opacity="0.12" />
+
+          </g>
+        </svg>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Helper
+    const $ = id => document.getElementById(id);
+
+    // Inputs
+    const inCardType = $('inCardType');
+    const inTitle = $('inTitle');
+    const inCost = $('inCost');
+    const inDisassemble = $('inDisassemble');
+    const inImageUrl = $('inImageUrl');
+    const inImageFile = $('inImageFile');
+    const inTopBolts = $('inTopBolts');
+    const inBottomBolts = $('inBottomBolts');
+    const inEnergy = $('inEnergy');
+    const inBag = $('inBag');
+    const inRuleTop = $('inRuleTop');
+    const inRuleBottom = $('inRuleBottom');
+    const inSingleRule = $('inSingleRule');
+    const inFlavor = $('inFlavor');
+
+    // SVG elements
+    const titleText = $('title');
+    const maskCostText = $('maskCostText');
+    const maskDisassembleText = $('maskDisassembleText');
+    const tagCostVisible = $('tagCostVisible');
+    const disassembleVisible = $('disassembleVisible');
+    const artImage = $('artImage');
+    const topRule = $('topRule');
+    const bottomRule = $('bottomRule');
+    const topBoltsGroup = $('topBolts');
+    const bottomBoltsGroup = $('bottomBolts');
+    const flavorText = $('flavorText');
+    const energyValue = $('energyValue');
+    const bagValue = $('bagValue');
+    
+    // Groups for different card types
+    const tagGroup = $('tagGroup');
+    const midArea = $('midArea');
+    const singleRuleGroup = $('singleRuleGroup');
+    const techRuleGroup = $('techRuleGroup');
+    const statsGroup = $('statsGroup');
+    const disassembleGroup = $('disassembleGroup');
+    const topRuleBox = $('topRuleBox');
+    const bottomRuleBox = $('bottomRuleBox');
+    
+    // UI containers
+    const boltsContainer = $('boltsContainer');
+    const rulesContainer = $('rulesContainer');
+    const singleRuleContainer = $('singleRuleContainer');
+    const disassembleContainer = $('disassembleContainer');
+    const energyBagContainer = $('energyBagContainer');
+    const costDisassembleContainer = $('costDisassembleContainer');
+
+    // Drag and drop variables
+    let isDragging = false;
+    let startX, startY;
+    let currentX = 0, currentY = 0;
+
+    // JSON functionalities
+    document.getElementById("btnExportJSON").addEventListener("click", exportCardAsJSON);
+
+    document.getElementById("inImportJSON").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        importCardFromJSON(file);
+      }
+    });
+
+    // initial render
+    function renderAll(){
+      const cardType = inCardType.value;
+      const title = inTitle.value.toUpperCase();
+      titleText.textContent = title;
+      
+      const isSkill = inCardType.value === 'SKILL';
+      if (topBoltsGroup) renderBolts(inTopBolts.value|0, topBoltsGroup, isSkill);
+      if (bottomBoltsGroup) renderBolts(inBottomBolts.value|0, bottomBoltsGroup, isSkill);
+
+      // Update based on card type
+      updateCardType(cardType);
+      
+      const cost = inCost.value || '0';
+      if (maskCostText) maskCostText.textContent = cost;
+      if (tagCostVisible) tagCostVisible.textContent = cost;
+
+      const disassemble = inDisassemble.value || '0';
+      if (maskDisassembleText) maskDisassembleText.textContent = disassemble;
+      if (disassembleVisible) disassembleVisible.textContent = disassemble;
+
+      if (topRule) topRule.textContent = inRuleTop.value;
+      if (bottomRule) bottomRule.textContent = inRuleBottom.value;
+      
+      // Update the single rule text (CREW/KEY/EVENT)
+      const singleRuleElement = singleRuleGroup.querySelector('div');
+      if (singleRuleElement) {
+        singleRuleElement.textContent = inSingleRule.value;
+      }
+      
+      // Update TECH rule text
+      const techRuleElement = techRuleGroup.querySelector('div');
+      if (techRuleElement) {
+        techRuleElement.textContent = inSingleRule.value;
+      }
+      
+      if (flavorText) flavorText.textContent = inFlavor.value;
+
+      if (energyValue) energyValue.textContent = inEnergy.value;
+      if (bagValue) bagValue.textContent = inBag.value;
+      
+    }
+
+    function updateCardType(cardType) {
+      // Reset all to default visibility
+      tagGroup.style.display = 'none';
+      midArea.style.display = 'none';
+      singleRuleGroup.style.display = 'none';
+      techRuleGroup.style.display = 'none';
+      statsGroup.style.display = 'none';
+      disassembleGroup.style.display = 'none';
+      boltsContainer.style.display = 'block';
+      rulesContainer.style.display = 'block';
+      singleRuleContainer.style.display = 'none';
+      disassembleContainer.style.display = 'none';
+      energyBagContainer.style.display = 'grid';
+      costDisassembleContainer.style.display = 'grid';
+      
+      // Adjust based on card type
+      const artGroup = $('artGroup');
+      
+      if (cardType === 'CREW') {
+        tagGroup.style.display = '';
+        singleRuleGroup.style.display = '';
+        statsGroup.style.display = ''; // CREW shows stats
+        artGroup.setAttribute('transform', 'translate(70,120)');
+        singleRuleGroup.setAttribute('transform', 'translate(70,550)');
+        boltsContainer.style.display = 'none';
+        rulesContainer.style.display = 'none';
+        singleRuleContainer.style.display = 'block';
+        statsGroup.setAttribute('transform', 'translate(70,905)');
+        // Make the rule box larger
+        singleRuleGroup.querySelector('rect').setAttribute('height', '325');
+      } 
+      else if (cardType === 'SKILL') {
+        midArea.style.display = '';
+        // Expand rule boxes to cover bottom half
+        topRuleBox.setAttribute('height', '190');
+        bottomRuleBox.setAttribute('height', '190');
+        midArea.setAttribute('transform', 'translate(70,550)');
+        artGroup.setAttribute('transform', 'translate(70,120)');
+        // Change top box color to turquoise
+        topRuleBox.setAttribute('fill', '#123a3a');
+        topRuleBox.setAttribute('stroke', '#327a7a');
+        // Hide cost, energy and bag for SKILL
+        costDisassembleContainer.style.display = 'none';
+        energyBagContainer.style.display = 'none';
+      } 
+      else if (cardType === 'TECH') {
+        tagGroup.style.display = '';
+        techRuleGroup.style.display = '';
+        disassembleGroup.style.display = '';
+        artGroup.setAttribute('transform', 'translate(70,120)');
+        techRuleGroup.setAttribute('transform', 'translate(70,550)');
+        boltsContainer.style.display = 'none';
+        rulesContainer.style.display = 'none';
+        singleRuleContainer.style.display = 'block';
+        disassembleContainer.style.display = 'block';
+        // position disassemble icon top-right, same x-offset as before, y aligned with tag
+        disassembleGroup.setAttribute('transform', 'translate(610,70)');
+        // TECH shows energy/bag in editor and stats icons on card
+        energyBagContainer.style.display = 'grid';
+        statsGroup.style.display = '';
+        // Ensure textbox height is reduced (already in markup)
+      }
+      else if (cardType === 'KEY' || cardType === 'EVENT') {
+        singleRuleGroup.style.display = '';
+        artGroup.setAttribute('transform', 'translate(70,120)');
+        singleRuleGroup.setAttribute('transform', 'translate(70,550)');
+        // Make the rule box taller
+        singleRuleGroup.querySelector('rect').setAttribute('height', '400');
+        boltsContainer.style.display = 'none';
+        rulesContainer.style.display = 'none';
+        singleRuleContainer.style.display = 'block';
+        // Remove Energy/Bag inputs from editor for KEY/EVENT
+        energyBagContainer.style.display = 'none';
+      }
+    }
+
+    function renderBolts(count, group, isSkill = false){
+      if (!group) return;
+      // clear
+      while(group.firstChild) group.removeChild(group.firstChild);
+      const gap = 36;
+      for(let i=0;i<count;i++){
+        const use = document.createElementNS('http://www.w3.org/2000/svg','use');
+        
+        // Použij obrysovou ikonu pro SKILL karty, jinak normální
+        if (isSkill) {
+          use.setAttributeNS('http://www.w3.org/1999/xlink','href','#iconBatteryOutline');
+        } else {
+          use.setAttributeNS('http://www.w3.org/1999/xlink','href','#iconBattery');
+          use.setAttribute('fill', '#ffd76a');
+        }
+        
+        use.setAttribute('x', i*gap);
+        use.setAttribute('y', 0);
+        use.setAttribute('width', 36);
+        use.setAttribute('height', 36);
+        group.appendChild(use);
+      }
+    }
+
+    function exportCardAsJSON() {
+      const cardData = {
+        type: inCardType.value,
+        title: inTitle.value,
+        cost: inCost.value,
+        disassemble: inDisassemble.value,
+        imageUrl: inImageUrl.value,
+        artImageHref: artImage.getAttribute("href"), // pokud je nahraný obrázek
+        topBolts: inTopBolts.value,
+        bottomBolts: inBottomBolts.value,
+        energy: inEnergy.value,
+        bag: inBag.value,
+        ruleTop: inRuleTop.value,
+        ruleBottom: inRuleBottom.value,
+        singleRule: inSingleRule.value,
+        flavor: inFlavor.value
+      };
+
+      const blob = new Blob([JSON.stringify(cardData, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.download = "millenium-card.json";
+      link.href = URL.createObjectURL(blob);
+      link.click();
+    }
+
+    function importCardFromJSON(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+
+          inCardType.value = data.type || "CREW";
+          inTitle.value = data.title || "";
+          inCost.value = data.cost || "";
+          inDisassemble.value = data.disassemble || "";
+          inImageUrl.value = data.imageUrl || "";
+          if (data.artImageHref) {
+            artImage.setAttribute("href", data.artImageHref);
+          }
+          inTopBolts.value = data.topBolts || "";
+          inBottomBolts.value = data.bottomBolts || "";
+          inEnergy.value = data.energy || "";
+          inBag.value = data.bag || "";
+          inRuleTop.value = data.ruleTop || "";
+          inRuleBottom.value = data.ruleBottom || "";
+          inSingleRule.value = data.singleRule || "";
+          inFlavor.value = data.flavor || "";
+
+          // Překreslit kartu
+          renderAll();
+        } catch (err) {
+          alert("Soubor není validní JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+
+
+    function exportSVGAsPNG() {
+      const svg = document.getElementById("card");
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svg);
+
+      // namespace
+      if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      const img = new Image();
+      img.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = svg.viewBox.baseVal.width;
+        canvas.height = svg.viewBox.baseVal.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        const link = document.createElement("a");
+        link.download = "millenium-card.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+    }
+
+    document.getElementById("btnExportPNG").addEventListener("click", exportSVGAsPNG);
+
+    // Drag and drop functionality
+    function startDrag(e) {
+      if (!artImage.getAttribute('href')) return;
+      e.preventDefault();
+      isDragging = true;
+      startX = e.clientX - currentX;
+      startY = e.clientY - currentY;
+
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', endDrag);
+    }
+
+    function drag(e) {
+      if (!isDragging || !artImage.getAttribute('href')) return;
+      e.preventDefault();
+      currentX = e.clientX - startX;
+      currentY = e.clientY - startY;
+
+      artImage.setAttribute('x', currentX);
+      artImage.setAttribute('y', currentY);
+    }
+
+    function endDrag() {
+      isDragging = false;
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', endDrag);
+    }
+
+    // Event listeners
+    inCardType.addEventListener('change', () => {
+      renderAll();
+      // renderbolts
+      const isSkill = inCardType.value === 'SKILL';
+      if (topBoltsGroup) renderBolts(inTopBolts.value|0, topBoltsGroup, isSkill);
+      if (bottomBoltsGroup) renderBolts(inBottomBolts.value|0, bottomBoltsGroup, isSkill);
+    });
+
+
+    inTitle.addEventListener('input', () => {
+      titleText.textContent = inTitle.value.toUpperCase();
+    });
+
+    inCost.addEventListener('input', () => {
+      const cost = inCost.value || '0';
+      if (maskCostText) maskCostText.textContent = cost;
+      if (tagCostVisible) tagCostVisible.textContent = cost;
+    });
+
+    inDisassemble.addEventListener('input', () => {
+      const disassemble = inDisassemble.value || '0';
+      if (maskDisassembleText) maskDisassembleText.textContent = disassemble;
+      if (disassembleVisible) disassembleVisible.textContent = disassemble;
+    });
+
+    inImageUrl.addEventListener('input', () => {
+      artImage.setAttribute('href', inImageUrl.value);
+      // Reset drag position when changing image
+      currentX = 0;
+      currentY = 0;
+      artImage.setAttribute('x', 0);
+      artImage.setAttribute('y', 0);
+    });
+
+    inImageFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          artImage.setAttribute('href', event.target.result);
+          // Reset drag position when changing image
+          currentX = 0;
+          currentY = 0;
+          artImage.setAttribute('x', 0);
+          artImage.setAttribute('y', 0);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    inTopBolts.addEventListener('input', () => {
+      const isSkill = inCardType.value === 'SKILL';
+      renderBolts(inTopBolts.value|0, topBoltsGroup, isSkill);
+    });
+
+    inBottomBolts.addEventListener('input', () => {
+      const isSkill = inCardType.value === 'SKILL';
+      renderBolts(inBottomBolts.value|0, bottomBoltsGroup, isSkill);
+    });
+
+    inEnergy.addEventListener('input', () => {
+      if (energyValue) energyValue.textContent = inEnergy.value;
+    });
+
+    inBag.addEventListener('input', () => {
+      if (bagValue) bagValue.textContent = inBag.value;
+    });
+
+    inRuleTop.addEventListener('input', () => {
+      if (topRule) topRule.textContent = inRuleTop.value;
+    });
+
+    inRuleBottom.addEventListener('input', () => {
+      if (bottomRule) bottomRule.textContent = inRuleBottom.value;
+    });
+
+    inSingleRule.addEventListener('input', () => {
+      // Update the single rule text (CREW/KEY/EVENT)
+      const singleRuleElement = singleRuleGroup.querySelector('div');
+      if (singleRuleElement) {
+        singleRuleElement.textContent = inSingleRule.value;
+      }
+      
+      // Update TECH rule text
+      const techRuleElement = techRuleGroup.querySelector('div');
+      if (techRuleElement) {
+        techRuleElement.textContent = inSingleRule.value;
+      }
+    });
+
+    inFlavor.addEventListener('input', () => {
+      if (flavorText) flavorText.textContent = inFlavor.value;
+    });
+
+    // Add drag functionality
+    artImage.addEventListener('mousedown', startDrag);
+
+    // Reset button
+    $('btnReset').addEventListener('click', () => {
+      if (confirm('Opravdu chcete resetovat kartu?')) {
+        inTitle.value = 'Jméno Karty';
+        inCost.value = '3';
+        inDisassemble.value = '2';
+        inImageUrl.value = '';
+        inImageFile.value = '';
+        inTopBolts.value = '2';
+        inBottomBolts.value = '1';
+        inEnergy.value = '3';
+        inBag.value = '2';
+        inRuleTop.value = 'Zaplať 1 → Proveď akci.';
+        inRuleBottom.value = 'Cíl získá +1 energie do konce kola.';
+        inSingleRule.value = 'Zaplať 1 → Proveď akci. Cíl získá +1 energie do konce kola.';
+        inFlavor.value = '„Ticho před bouří — stiskni ten spínač.“';
+        artImage.setAttribute('href', '');
+        currentX = 0;
+        currentY = 0;
+        artImage.setAttribute('x', 0);
+        artImage.setAttribute('y', 0);
+        renderAll();
+      }
+    });
+
+    // Initial render
+    renderAll();
+  </script>
+</body>
+</html>
