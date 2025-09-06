@@ -201,24 +201,26 @@
               <path d="M13 4 L9 13 H12 L11 17 L15 11 H12 L13 5 Z" fill="#fff" />
             </symbol>
 
-
-
-
             <!-- Tag icon -->
             <symbol id="iconTag" viewBox="0 0 70 140">
-              <!-- the hole in the tag -->
-              <circle cx="35" cy="18" r="8" fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="1.5"/>
-              <!-- the shape of the tag -->
-              <path d="
-                M10,18
-                H60
-                A10,10 0 0 1 70,28
-                V100
-                L35,140 0,100
-                V28
-                A10,10 0 0 1 10,18
-                Z"
-                fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="4"/>
+              <!-- otočíme původní tvar kolem středu symbolu (35,70) -->
+              <g transform="rotate(180 35 70)">
+              
+                <!-- samotný tvar visačky -->
+                <path d="
+                  M10,18
+                  H60
+                  A10,10 0 0 1 70,28
+                  V100
+                  L35,140 0,100
+                  V28
+                  A10,10 0 0 1 10,18
+                  Z"
+                  fill="url(#chromeEdge)" stroke="#cfe9fb" stroke-width="4"/>
+                  <!-- otvor (dírka) nahoře -->
+                  <circle cx="35" cy="112" r="8"
+                          fill="white" stroke="#cfe9fb" stroke-width="2"/>
+              </g>
             </symbol>
 
             <!-- mask for disassemble number -->
@@ -298,7 +300,7 @@
               <use href="#iconTag" x="10" y="15" width="70" height="140"/>
               <!-- číslo uvnitř -->
               <g transform="rotate(0,35,90)">
-                <text id="tagCostVisible" x="45" y="100" text-anchor="middle"
+                <text id="tagCostVisible" x="45" y="115" text-anchor="middle"
                       font-size="55" font-weight="500" font-family="var(--font-futuristic)"
                       fill="#ffffff" stroke="#cfe9fb" stroke-width="3" paint-order="stroke fill">3</text>
               </g>
